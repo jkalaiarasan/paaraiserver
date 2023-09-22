@@ -146,8 +146,7 @@ def save_news():
             'Created_Date__c': current_date,
             'Title__c': data['title'],
         }
-
-        result = sf.apexecute(method='POST', url='/services/data/vXX.X/sobjects/News__c/', data=news_inst)
+        result = sf.create('News__c', news_inst)
 
         if result and 'id' in result:
             obj['data'] = result['id']

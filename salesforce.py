@@ -10,7 +10,6 @@ class Salesforce:
             self.sf = SimpleSalesforce(username=self.username, password=self.password, security_token=self.security_token)
         except KeyError as e:
             print(f"Error: Environment variable {e.args[0]} is not set. Please set all required environment variables before running the application.")
-            # You can choose to raise an exception, exit the application, or take other appropriate actions here.
 
     def query(self, query):
         try:
@@ -18,6 +17,17 @@ class Salesforce:
             return result
         except Exception as e:
             print(f"Salesforce query failed: {e}")
+            
+    def create(self, sobject, data):
+        print(sobject)
+        try:
+            if not self.sf.session_id:
+                self.sf.login(self.username, self.password + self.security_token)
+            sf_object = self.sf.__getattr__(sobject)
+            response = sf_object.create(data)
+            return response
+        except Exception as e:
+            print(f"Salesforce create failed: {e}")
 
 if __name__ == "__main__":
     sf = Salesforce()
