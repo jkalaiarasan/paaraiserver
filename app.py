@@ -71,22 +71,22 @@ def get_member_info():
     print('kalai ', obj)
     return jsonify(obj)
 
-
-
+@app.route('/getNews', methods=['POST'])
+def get_news():
+    token = request.json.get('token')
+    obj = {'isError': False}
     try:
-        decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        member_id = decoded['memberId']
-        result = sf.query(f"SELECT Id, Name, Work__c, Location__c, Paarai_Id__c, PIN__c, Date_of_Birth__c, Is_Approved__c, Phone_Number__c, UserName__c, Position__c FROM Member__c WHERE Id = '{member_id}'")
-        if result['records']:
-            obj['data'] = result['records'][0]
-        else:
-            obj['isError'] = True
-            obj['message'] = 'Member not found'
-    except jwt.InvalidTokenError:
+        decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
+        post_data = {'type' : 'getNews'}
+        response = requests.post(endpoint_url, data=json.dumps(post_data), headers=headers)
+        print(response)
+        if response.status_code == 200:
+            obj['data'] = json.loads(response.json())
+    except Exception as err:
         obj['isError'] = True
-        obj['message'] = 'Invalid token'
-    
+        obj['message'] = str(err)
     return jsonify(obj)
+
 
 # @app.route('/getMemberList', methods=['POST'])
 # def get_member_list():
@@ -133,42 +133,6 @@ def get_member_info():
 #         obj['message'] = 'Invalid token'
 
 #     return jsonify(obj)
-
-# @app.route('/getNews', methods=['POST'])
-# def get_news():
-#     token = request.json.get('token')
-#     obj = {'isError': False}
-#     try:
-#         decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
-#         result = sf.query(
-#             "SELECT Id, Title__c, Description__c, Created_Date__c, Member__r.Name FROM News__c WHERE Is_Approved__c = true ORDER BY Created_Date__c DESC"
-#         )
-
-#         obj['data'] = result.get('records')
-#     except Exception as err:
-#         obj['isError'] = True
-#         obj['message'] = str(err)
-
-#     return jsonify(obj)
-
-# @app.route('/getTransaction', methods=['POST'])
-# def get_Transactions():
-#     token = request.json.get('token')
-#     obj = {'isError': False}
-#     try:
-#         decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
-#         member_id = decoded['Id']
-#         result = sf.query(
-#             f"SELECT Id, Name, Type__c, Month__c, Date__c, Description__c, Amount__c, Group_Account__r.Total_Amount__c FROM Group_Transaction__c WHERE Group_Member__c = '{member_id}' AND Group_Account__r.Account_Type__c = 'Savings Account' ORDER BY CreatedDate DESC"
-#         )
-
-#         obj['data'] = result.get('records')
-#     except Exception as err:
-#         obj['isError'] = True
-#         obj['message'] = str(err)
-
-#     return jsonify(obj)
-
 
 # @app.route('/saveNews', methods=['POST'])
 # def save_news():
