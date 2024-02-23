@@ -1,16 +1,22 @@
 import datetime
 from flask import Flask, request, jsonify
 import jwt
-from salesforce import Salesforce
+#from salesforce import Salesforce
 from flask_cors import CORS
 import requests
 import os
+import json
 
 app = Flask(__name__)
 CORS(app)
 
 app.config['SECRET_KEY'] = 'FLEKNNIRQSQ'
-sf = Salesforce()
+
+obj = {}
+obj['isError'] = False
+
+endpoint_url = 'https://account-dev-ed.develop.my.site.com/paaraiboys/services/apexrest/paaraiboys'
+headers = {'Content-Type': 'application/json'}
 
 @app.route('/')
 def hello_world():
@@ -21,24 +27,17 @@ def get_token():
     data = request.json
     user_name = data.get('userName')
     pin = data.get('pin')
-    if(data.get('isPaarai') == True):
-        result = sf.query(f"SELECT Id,Paarai_Id__c,Name,Pin__c FROM Member__c WHERE UserName__c='{user_name}'")
-    else:
-        result = sf.query(f"SELECT Id,Member_Id__c,Name,Pin__c FROM Group_Member__c WHERE UserName__c='{user_name}'")
-    obj = {}
-    if result['records']:
-        member = result['records'][0]
-        if pin == member['PIN__c']:
-            if(data.get('isPaarai') == True):
-                payload = {
-                    'memberId': member['Id'],
-                    'paaraiId': member['Paarai_Id__c']
-                }
-            else:
-                payload = {
-                    'Id': member['Id'],
-                    'memberId': member['Member_Id__c'],
-                }
+    post_data = {'userName': user_name, 'type' : 'gettoken'}
+    
+    response = requests.post(endpoint_url, data=json.dumps(post_data), headers=headers)
+    
+    if response.status_code == 200:
+        member = json.loads(response.json())
+        if 'PIN__c' in member and pin == member['PIN__c']:
+            payload = {
+                'memberId': member['Id'],
+                'paaraiId': member['Paarai_Id__c']
+            }
             obj['Name'] = member['Name']
             token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
             obj['token'] = token
@@ -47,7 +46,7 @@ def get_token():
             obj['message'] = 'Incorrect Pin'
     else:
         obj['isError'] = True
-        obj['message'] = 'Incorrect username'
+        obj['message'] = 'Error in fetching member info from the server'
     return jsonify(obj)
 
 @app.route('/getMemberInfo', methods=['POST'])
@@ -56,15 +55,28 @@ def get_member_info():
     token = data.get('token')
     obj = {}
     obj['isError'] = False
+    decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+    member_id = decoded['memberId']
+    print('member_id ', member_id)
+    post_data = {'member_id': member_id, 'type' : 'getInfo'}
+    
+    response = requests.post(endpoint_url, data=json.dumps(post_data), headers=headers)
+    
+    if response.status_code == 200:
+        member = json.loads(response.json())
+        obj['data'] = member
+    else:
+        obj['isError'] = True
+        obj['message'] = 'Error in fetching member info from the server'
+    print('kalai ', obj)
+    return jsonify(obj)
+
+
 
     try:
         decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        if(data.get('isPaarai') == True):
-            member_id = decoded['memberId']
-            result = sf.query(f"SELECT Id, Name, Work__c, Location__c, Paarai_Id__c, PIN__c, Date_of_Birth__c, Is_Approved__c, Phone_Number__c, UserName__c, Position__c FROM Member__c WHERE Id = '{member_id}'")
-        else:
-            member_id = decoded['Id']
-            result = sf.query(f"SELECT Id, Name, Aadhar_Number__c, Address__c, Joining_Date__c, Member_Id__c, Mobile__c, Username__c, Position__c FROM Group_Member__c WHERE Id = '{member_id}'")
+        member_id = decoded['memberId']
+        result = sf.query(f"SELECT Id, Name, Work__c, Location__c, Paarai_Id__c, PIN__c, Date_of_Birth__c, Is_Approved__c, Phone_Number__c, UserName__c, Position__c FROM Member__c WHERE Id = '{member_id}'")
         if result['records']:
             obj['data'] = result['records'][0]
         else:
@@ -76,125 +88,122 @@ def get_member_info():
     
     return jsonify(obj)
 
-@app.route('/getMemberList', methods=['POST'])
-def get_member_list():
-    data = request.json
-    token = data.get('token')
-    obj = {}
-    obj['isError'] = False
+# @app.route('/getMemberList', methods=['POST'])
+# def get_member_list():
+#     data = request.json
+#     token = data.get('token')
+#     obj = {}
+#     obj['isError'] = False
 
-    try:
-        decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        if(data.get('isPaarai') == True):
-            result = sf.query("SELECT Id, Name, Work__c, Paarai_Id__c, Phone_Number__c, UserName__c, Position__c, Location__c FROM Member__c WHERE Is_Approved__c = true ORDER BY Paarai_Id__c ASC")
-        else:
-            result = sf.query("SELECT Id, Name, Member_Id__c, Position__c FROM Group_Member__c ORDER BY Member_Id__c ASC")
-        if result['records']:
-            obj['data'] = result['records']
-        else:
-            obj['isError'] = True
-            obj['message'] = 'No approved members found'
-    except jwt.InvalidTokenError:
-        obj['isError'] = True
-        obj['message'] = 'Invalid token'
+#     try:
+#         decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+#         result = sf.query("SELECT Id, Name, Work__c, Paarai_Id__c, Phone_Number__c, UserName__c, Position__c, Location__c FROM Member__c WHERE Is_Approved__c = true ORDER BY Paarai_Id__c ASC")
+#         if result['records']:
+#             obj['data'] = result['records']
+#         else:
+#             obj['isError'] = True
+#             obj['message'] = 'No approved members found'
+#     except jwt.InvalidTokenError:
+#         obj['isError'] = True
+#         obj['message'] = 'Invalid token'
 
-    return jsonify(obj)
+#     return jsonify(obj)
 
-@app.route('/getEventList', methods=['POST'])
-def get_event_list():
-    data = request.json
-    token = data.get('token')
-    obj = {}
-    obj['isError'] = False
+# @app.route('/getEventList', methods=['POST'])
+# def get_event_list():
+#     data = request.json
+#     token = data.get('token')
+#     obj = {}
+#     obj['isError'] = False
 
-    try:
-        decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        query = ("SELECT Id, Name, Start_Date__c, End_Date__c, Member__r.Name, "
-                 "(SELECT Name, Incharge__r.Name, Start_Time__c, Duration__c FROM Competitions__r) "
-                 "FROM Event__c ORDER BY Start_Date__c DESC")
-        result = sf.query(query)
+#     try:
+#         decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+#         query = ("SELECT Id, Name, Start_Date__c, End_Date__c, Member__r.Name, "
+#                  "(SELECT Name, Incharge__r.Name, Start_Time__c, Duration__c FROM Competitions__r) "
+#                  "FROM Event__c ORDER BY Start_Date__c DESC")
+#         result = sf.query(query)
         
-        if result['records']:
-            obj['data'] = result['records']
-        else:
-            obj['isError'] = True
-            obj['message'] = 'No events found'
-    except jwt.InvalidTokenError:
-        obj['isError'] = True
-        obj['message'] = 'Invalid token'
+#         if result['records']:
+#             obj['data'] = result['records']
+#         else:
+#             obj['isError'] = True
+#             obj['message'] = 'No events found'
+#     except jwt.InvalidTokenError:
+#         obj['isError'] = True
+#         obj['message'] = 'Invalid token'
 
-    return jsonify(obj)
+#     return jsonify(obj)
 
-@app.route('/getNews', methods=['POST'])
-def get_news():
-    token = request.json.get('token')
-    obj = {'isError': False}
-    try:
-        decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
-        result = sf.query(
-            "SELECT Id, Title__c, Description__c, Created_Date__c, Member__r.Name FROM News__c WHERE Is_Approved__c = true ORDER BY Created_Date__c DESC"
-        )
+# @app.route('/getNews', methods=['POST'])
+# def get_news():
+#     token = request.json.get('token')
+#     obj = {'isError': False}
+#     try:
+#         decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
+#         result = sf.query(
+#             "SELECT Id, Title__c, Description__c, Created_Date__c, Member__r.Name FROM News__c WHERE Is_Approved__c = true ORDER BY Created_Date__c DESC"
+#         )
 
-        obj['data'] = result.get('records')
-    except Exception as err:
-        obj['isError'] = True
-        obj['message'] = str(err)
+#         obj['data'] = result.get('records')
+#     except Exception as err:
+#         obj['isError'] = True
+#         obj['message'] = str(err)
 
-    return jsonify(obj)
+#     return jsonify(obj)
 
-@app.route('/getTransaction', methods=['POST'])
-def get_Transactions():
-    token = request.json.get('token')
-    obj = {'isError': False}
-    try:
-        decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
-        member_id = decoded['Id']
-        result = sf.query(
-            f"SELECT Id, Name, Type__c, Month__c, Date__c, Description__c, Amount__c, Group_Account__r.Total_Amount__c FROM Group_Transaction__c WHERE Group_Member__c = '{member_id}' AND Group_Account__r.Account_Type__c = 'Savings Account' ORDER BY CreatedDate DESC"
-        )
+# @app.route('/getTransaction', methods=['POST'])
+# def get_Transactions():
+#     token = request.json.get('token')
+#     obj = {'isError': False}
+#     try:
+#         decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
+#         member_id = decoded['Id']
+#         result = sf.query(
+#             f"SELECT Id, Name, Type__c, Month__c, Date__c, Description__c, Amount__c, Group_Account__r.Total_Amount__c FROM Group_Transaction__c WHERE Group_Member__c = '{member_id}' AND Group_Account__r.Account_Type__c = 'Savings Account' ORDER BY CreatedDate DESC"
+#         )
 
-        obj['data'] = result.get('records')
-    except Exception as err:
-        obj['isError'] = True
-        obj['message'] = str(err)
+#         obj['data'] = result.get('records')
+#     except Exception as err:
+#         obj['isError'] = True
+#         obj['message'] = str(err)
 
-    return jsonify(obj)
+#     return jsonify(obj)
 
 
-@app.route('/saveNews', methods=['POST'])
-def save_news():
-    token = request.json.get('token')
-    obj = {'isError': False}
+# @app.route('/saveNews', methods=['POST'])
+# def save_news():
+#     token = request.json.get('token')
+#     obj = {'isError': False}
 
-    try:
-        decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
-        memberId = decoded['memberId']
-        data = request.json.get('news')
-        current_date = datetime.datetime.now().isoformat().split('T')[0]
+#     try:
+#         decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
+#         memberId = decoded['memberId']
+#         data = request.json.get('news')
+#         current_date = datetime.datetime.now().isoformat().split('T')[0]
         
-        news_inst = {
-            'Is_Approved__c': False,
-            'Member__c': memberId,
-            'Description__c': data['description'],
-            'Created_Date__c': current_date,
-            'Title__c': data['title'],
-        }
-        result = sf.create('News__c', news_inst)
+#         news_inst = {
+#             'Is_Approved__c': False,
+#             'Member__c': memberId,
+#             'Description__c': data['description'],
+#             'Created_Date__c': current_date,
+#             'Title__c': data['title'],
+#         }
+#         result = sf.create('News__c', news_inst)
 
-        if result and 'id' in result:
-            obj['data'] = result['id']
-        else:
-            obj['isError'] = True
-            obj['message'] = "News creation failed"
+#         if result and 'id' in result:
+#             obj['data'] = result['id']
+#         else:
+#             obj['isError'] = True
+#             obj['message'] = "News creation failed"
 
-    except jwt.ExpiredSignatureError as err:
-        obj['isError'] = True
-        obj['message'] = str(err)
-    except Exception as err:
-        obj['isError'] = True
-        obj['message'] = str(err)
+#     except jwt.ExpiredSignatureError as err:
+#         obj['isError'] = True
+#         obj['message'] = str(err)
+#     except Exception as err:
+#         obj['isError'] = True
+#         obj['message'] = str(err)
 
-    return jsonify(obj)
+#     return jsonify(obj)
 
 @app.route('/getWeather', methods=['GET'])
 def get_weather():
