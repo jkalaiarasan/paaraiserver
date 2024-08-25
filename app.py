@@ -88,26 +88,21 @@ def get_news():
     return jsonify(obj)
 
 
-# @app.route('/getMemberList', methods=['POST'])
-# def get_member_list():
-#     data = request.json
-#     token = data.get('token')
-#     obj = {}
-#     obj['isError'] = False
-
-#     try:
-#         decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-#         result = sf.query("SELECT Id, Name, Work__c, Paarai_Id__c, Phone_Number__c, UserName__c, Position__c, Location__c FROM Member__c WHERE Is_Approved__c = true ORDER BY Paarai_Id__c ASC")
-#         if result['records']:
-#             obj['data'] = result['records']
-#         else:
-#             obj['isError'] = True
-#             obj['message'] = 'No approved members found'
-#     except jwt.InvalidTokenError:
-#         obj['isError'] = True
-#         obj['message'] = 'Invalid token'
-
-#     return jsonify(obj)
+@app.route('/getMemberList', methods=['POST'])
+def get_member_list():
+    token = request.json.get('token')
+    obj = {'isError': False}
+    try:
+        decoded = jwt.decode(token, 'FLEKNNIRQSQ', algorithms=['HS256'])
+        post_data = {'type' : 'getMemberList'}
+        response = requests.post(endpoint_url, data=json.dumps(post_data), headers=headers)
+        print(response)
+        if response.status_code == 200:
+            obj['data'] = json.loads(response.json())
+    except Exception as err:
+        obj['isError'] = True
+        obj['message'] = str(err)
+    return jsonify(obj)
 
 # @app.route('/getEventList', methods=['POST'])
 # def get_event_list():
