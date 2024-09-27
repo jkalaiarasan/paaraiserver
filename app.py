@@ -18,6 +18,45 @@ obj['isError'] = False
 endpoint_url = 'https://account-dev-ed.develop.my.site.com/paaraiboys/services/apexrest/paaraiboys'
 headers = {'Content-Type': 'application/json'}
 
+@app.route('/sendEmail', methods=['POST'])
+def send_email():
+    data = request.json
+    sender = data.get('sender')
+    to = data.get('to')
+    cc = data.get('cc')
+    subject = data.get('subject')
+    html_body = data.get('html_body')
+    smtp2go_url = 'https://api.smtp2go.com/v3/email/send'
+    headers = {
+        'Content-Type': 'application/json',
+        'accept': 'application/json',
+        'X-Smtp2go-Api-Key': os.environ.get('EMAIL_API')
+    }
+
+    payload = {
+        "sender": sender,
+        "to": to,
+        "cc": cc,
+        "subject": subject,
+        "html_body": html_body
+    }
+
+    try:
+        response = requests.post(smtp2go_url, data=json.dumps(payload), headers=headers)
+        response.raise_for_status() 
+
+        return jsonify({
+            'isError': False,
+            'message': 'Email sent successfully!',
+            'response': response.json()
+        })
+
+    except requests.exceptions.RequestException as err:
+        return jsonify({
+            'isError': True,
+            'message': f'Failed to send email: {str(err)}'
+        })
+
 @app.route('/')
 def hello_world():
     return 'Hello World'
