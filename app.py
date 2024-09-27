@@ -40,7 +40,8 @@ def send_email():
         "subject": subject,
         "html_body": html_body
     }
-
+    print(payload)
+    print(headers)
     try:
         response = requests.post(smtp2go_url, data=json.dumps(payload), headers=headers)
         response.raise_for_status() 
