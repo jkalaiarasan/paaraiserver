@@ -54,6 +54,8 @@ def send_email():
 
     except requests.exceptions.RequestException as err:
         return jsonify({
+            'payload' : payload,
+            'headers' : headers,
             'isError': True,
             'message': f'Failed to send email: {str(err)}'
         })
