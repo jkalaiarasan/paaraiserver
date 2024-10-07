@@ -116,7 +116,12 @@ def send_notification():
         print('Successfully sent message:', response)
     except Exception as e:
         print("Error sending notification:", str(e))
-        raise
+        json_file_path = './mobile-push-d5660-firebase-adminsdk-j7187-03d78489b6.json'
+
+        with open(json_file_path, 'r') as json_file:
+            data = json.load(json_file)
+        print(json.dumps(data, indent=4))
+        #raise
 
     return 'Notification sent'
 
