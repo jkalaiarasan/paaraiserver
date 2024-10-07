@@ -13,6 +13,15 @@ from firebase_admin import credentials, messaging
 cred = credentials.Certificate('./mobile-push-d5660-firebase-adminsdk-j7187-03d78489b6.json')
 firebase_admin.initialize_app(cred)
 
+json_file_path = './mobile-push-d5660-firebase-adminsdk-j7187-03d78489b6.json'
+
+# Open the JSON file and load its content
+with open(json_file_path, 'r') as json_file:
+    data = json.load(json_file)
+
+# Print the full JSON data in a readable format
+print(json.dumps(data, indent=4))  # Use i
+
 app = Flask(__name__)
 CORS(app)
 
