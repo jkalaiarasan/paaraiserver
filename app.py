@@ -6,6 +6,12 @@ from flask_cors import CORS
 import requests
 import os
 import json
+import firebase_admin
+from firebase_admin import credentials, messaging
+
+
+cred = credentials.Certificate('./mobile-push-d5660-firebase-adminsdk-j7187-03d78489b6.json')
+firebase_admin.initialize_app(cred)
 
 app = Flask(__name__)
 CORS(app)
@@ -64,15 +70,48 @@ def send_email():
 def hello_world():
     return 'Hello World'
 
+@app.route('/sendNotification', methods=['POST'])
+def send_notification():
+    data = request.json
+    title = data.get('title')
+    body = data.get('body')
+    registration_tokens = data.get('registration_tokens')
+    if len(registration_tokens) == 1:
+        message = messaging.Message(
+            notification=messaging.Notification(
+                title = title,
+                body = body,
+            ),
+            token=registration_tokens[0],
+        )
+        response = messaging.send(message)
+        print('Successfully sent message:', response)
+    else:
+        message = messaging.MulticastMessage(
+            notification=messaging.Notification(
+                title = title,
+                body = body,
+            ),
+            tokens = registration_tokens,
+        )
+        response = messaging.send_multicast(message)
+        for idx, resp in enumerate(response.responses):
+            if resp.success:
+                print(f'Message {idx + 1} sent successfully')
+            else:
+                print(f'Message {idx + 1} failed: {resp.exception}')
+    return 'Notification sent'
+    
 @app.route('/getToken', methods=['POST'])
 def get_token():
     data = request.json
     user_name = data.get('userName')
     pin = data.get('pin')
-    post_data = {'userName': user_name, 'type' : 'gettoken'}
-    
+    deviceToken = data.get('deviceToken')
+    post_data = {'userName': user_name, 'type' : 'gettoken', 'deviceToken': deviceToken}
+    print(112)
     response = requests.post(endpoint_url, data=json.dumps(post_data), headers=headers)
-    
+    print(114, response)
     if response.status_code == 200:
         member = json.loads(response.json())
         if 'PIN__c' in member and pin == member['PIN__c']:
@@ -89,6 +128,7 @@ def get_token():
     else:
         obj['isError'] = True
         obj['message'] = 'Error in fetching member info from the server'
+    print(obj)
     return jsonify(obj)
 
 @app.route('/getMemberInfo', methods=['POST'])
