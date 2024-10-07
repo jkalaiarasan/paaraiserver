@@ -76,32 +76,41 @@ def send_notification():
     title = data.get('title')
     body = data.get('body')
     registration_tokens = data.get('registration_tokens')
-    if len(registration_tokens) == 1:
-        message = messaging.Message(
-            notification=messaging.Notification(
-                title = title,
-                body = body,
-            ),
-            token=registration_tokens[0],
-        )
-        response = messaging.send(message)
+
+    # Debug prints to check incoming data
+    print("Received Notification Data:")
+    print("Title:", title)
+    print("Body:", body)
+    print("Registration Tokens:", registration_tokens)
+
+    try:
+        if len(registration_tokens) == 1:
+            message = messaging.Message(
+                notification=messaging.Notification(
+                    title=title,
+                    body=body,
+                ),
+                token=registration_tokens[0],
+            )
+            # This is line 87 where the error occurs
+            response = messaging.send(message)
+        else:
+            message = messaging.MulticastMessage(
+                notification=messaging.Notification(
+                    title=title,
+                    body=body,
+                ),
+                tokens=registration_tokens,
+            )
+            response = messaging.send_multicast(message)
+
         print('Successfully sent message:', response)
-    else:
-        message = messaging.MulticastMessage(
-            notification=messaging.Notification(
-                title = title,
-                body = body,
-            ),
-            tokens = registration_tokens,
-        )
-        response = messaging.send_multicast(message)
-        for idx, resp in enumerate(response.responses):
-            if resp.success:
-                print(f'Message {idx + 1} sent successfully')
-            else:
-                print(f'Message {idx + 1} failed: {resp.exception}')
+    except Exception as e:
+        print("Error sending notification:", str(e))
+        raise
+
     return 'Notification sent'
-    
+
 @app.route('/getToken', methods=['POST'])
 def get_token():
     data = request.json
